@@ -1,0 +1,43 @@
+name: Claude Issue Triage
+
+on:
+  issues:
+    types: [opened, edited]
+
+jobs:
+  triage:
+    if: github.event.issue.pull_request == null
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run Claude Issue Triage
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Analiza el issue #${{ github.event.issue.number }} de este repositorio.
+
+            1. Asigna los labels apropiados de entre los labels ya existentes en el
+               repo (usa `gh label list` para verlos, y
+               `gh issue edit ${{ github.event.issue.number }} --add-label "..."`
+               para asignarlos). No crees labels nuevos.
+            2. Publica un comentario en el issue
+               (`gh issue comment ${{ github.event.issue.number }} --body "..."`)
+               con un diagnóstico general del problema: causa probable, qué
+               archivos de este proyecto Tetris (game.js / index.html / style.css)
+               probablemente estén involucrados, y consideraciones a tener en
+               cuenta para implementar la solución más adelante.
+
+            No implementes ningún cambio de código ni hagas commits — este
+            workflow es solo de diagnóstico y triage.
+          claude_args: |
+            --allowed-tools "Bash(gh issue edit:*),Bash(gh issue comment:*),Bash(gh label list:*),Bash(gh issue view:*)"
