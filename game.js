@@ -18,6 +18,11 @@ const COLORS = [
   '#9575cd', // Y - deep purple
   '#fff176', // 1x1 (Tetris reward) - bright gold
   '#b0bec5', // 3x3 hollow - steel gray
+  '#ff5252', // Power-up: Bomba - danger red
+  '#ffee58', // Power-up: Rayo - electric yellow
+  '#ec407a', // Power-up: Tinte - magenta
+  '#66bb6a', // Power-up: Gravedad - green
+  '#4fc3f7', // Power-up: Congelar - ice blue
 ];
 
 const PIECES = [
@@ -34,6 +39,11 @@ const PIECES = [
   [[0,10],[10,10],[0,10],[0,10]],             // Y - special
   [[11]],                                     // 1x1 single - Tetris reward
   [[12,12,12],[12,0,12],[12,12,12]],          // 3x3 hollow - special
+  [[13]],                                     // Power-up: Bomba
+  [[14]],                                     // Power-up: Rayo
+  [[15]],                                     // Power-up: Tinte
+  [[16]],                                     // Power-up: Gravedad
+  [[17]],                                     // Power-up: Congelar
 ];
 
 const LINE_SCORES = [0, 100, 300, 500, 800];
@@ -48,6 +58,18 @@ const SPECIAL_PIECE_CHANCE = 0.12;
 // Piece type awarded right after a Tetris (4-line clear).
 const REWARD_PIECE_TYPE = 11;
 
+// Power-up piece types: 1x1 pieces that trigger a board effect on lock instead of merging.
+const POWERUP_BOMBA = 13;    // destroys a 3x3 area around the landing cell
+const POWERUP_RAYO = 14;     // clears the entire row it lands in
+const POWERUP_TINTE = 15;    // removes every block of the color it lands next to
+const POWERUP_GRAVEDAD = 16; // compacts gaps in every column
+const POWERUP_CONGELAR = 17; // freezes automatic gravity for a few seconds
+const POWERUP_TYPES = [POWERUP_BOMBA, POWERUP_RAYO, POWERUP_TINTE, POWERUP_GRAVEDAD, POWERUP_CONGELAR];
+const POWERUP_GLYPHS = { 13: '💣', 14: '⚡', 15: '🎨', 16: '🌀', 17: '❄️' };
+// Number of total lines cleared between forced power-up piece spawns.
+const POWERUP_LINE_INTERVAL = 5;
+const FREEZE_DURATION_MS = 5000;
+
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
 const nextCanvas = document.getElementById('next-canvas');
@@ -60,6 +82,7 @@ const overlayTitle = document.getElementById('overlay-title');
 const overlayScore = document.getElementById('overlay-score');
 const restartBtn = document.getElementById('restart-btn');
 const themeToggle = document.getElementById('theme-toggle');
+const powerupIndicatorEl = document.getElementById('powerup-indicator');
 
 const THEME_KEY = 'tetris-theme';
 
@@ -67,6 +90,13 @@ let board, current, next, score, lines, level, paused, gameOver, lastTime, dropA
 let gridColor = '#22222e';
 // Set when a Tetris (4-line clear) happens; consumed by the next randomPiece() call.
 let rewardPending = false;
+// Lines cleared since the last power-up spawn; and the pending power-up (if any) for the next randomPiece() call.
+let linesSincePowerup = 0;
+let powerupPending = false;
+let pendingPowerupType = null;
+// Timestamp (performance.now()-space) until which automatic gravity is suspended; 0 = not frozen.
+let freezeUntil = 0;
+let powerupLabelTimeout = null;
 
 function createBoard() {
   return Array.from({ length: ROWS }, () => new Array(COLS).fill(0));
@@ -77,6 +107,10 @@ function randomPiece() {
   if (rewardPending) {
     type = REWARD_PIECE_TYPE;
     rewardPending = false;
+  } else if (powerupPending) {
+    type = pendingPowerupType;
+    powerupPending = false;
+    pendingPowerupType = null;
   } else if (Math.random() < SPECIAL_PIECE_CHANCE) {
     type = SPECIAL_TYPES[Math.floor(Math.random() * SPECIAL_TYPES.length)];
   } else {
@@ -143,8 +177,105 @@ function clearLines() {
     level = Math.floor(lines / 10) + 1;
     dropInterval = Math.max(100, 1000 - (level - 1) * 90);
     if (cleared === 4) rewardPending = true;
+    linesSincePowerup += cleared;
+    if (linesSincePowerup >= POWERUP_LINE_INTERVAL) {
+      linesSincePowerup -= POWERUP_LINE_INTERVAL;
+      powerupPending = true;
+      pendingPowerupType = POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)];
+    }
     updateHUD();
   }
+}
+
+function applyPowerup(type, row, col) {
+  showPowerupLabel(POWERUP_GLYPHS[type]);
+  switch (type) {
+    case POWERUP_BOMBA:
+      applyBomba(row, col);
+      break;
+    case POWERUP_RAYO:
+      applyRayo(row);
+      break;
+    case POWERUP_TINTE:
+      applyTinte(row, col);
+      break;
+    case POWERUP_GRAVEDAD:
+      applyGravedad();
+      break;
+    case POWERUP_CONGELAR:
+      freezeUntil = performance.now() + FREEZE_DURATION_MS;
+      break;
+  }
+}
+
+function applyBomba(row, col) {
+  for (let r = row - 1; r <= row + 1; r++) {
+    if (r < 0 || r >= ROWS) continue;
+    for (let c = col - 1; c <= col + 1; c++) {
+      if (c < 0 || c >= COLS) continue;
+      board[r][c] = 0;
+    }
+  }
+  applyGravedad();
+}
+
+function applyRayo(row) {
+  board.splice(row, 1);
+  board.unshift(new Array(COLS).fill(0));
+  score += (LINE_SCORES[1] || 0) * level;
+  lines += 1;
+  level = Math.floor(lines / 10) + 1;
+  dropInterval = Math.max(100, 1000 - (level - 1) * 90);
+  linesSincePowerup += 1;
+}
+
+function applyTinte(row, col) {
+  const deltas = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+  let targetColor = null;
+  for (const [dr, dc] of deltas) {
+    const r = row + dr, c = col + dc;
+    if (r >= 0 && r < ROWS && c >= 0 && c < COLS && board[r][c]) {
+      targetColor = board[r][c];
+      break;
+    }
+  }
+  if (!targetColor) targetColor = mostCommonBoardColor();
+  if (targetColor) {
+    for (let r = 0; r < ROWS; r++)
+      for (let c = 0; c < COLS; c++)
+        if (board[r][c] === targetColor) board[r][c] = 0;
+  }
+  applyGravedad();
+}
+
+function mostCommonBoardColor() {
+  const counts = {};
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c < COLS; c++)
+      if (board[r][c]) counts[board[r][c]] = (counts[board[r][c]] || 0) + 1;
+  let best = null, bestCount = 0;
+  for (const k in counts) {
+    if (counts[k] > bestCount) { bestCount = counts[k]; best = Number(k); }
+  }
+  return best;
+}
+
+function applyGravedad() {
+  for (let c = 0; c < COLS; c++) {
+    const colVals = [];
+    for (let r = 0; r < ROWS; r++) if (board[r][c]) colVals.push(board[r][c]);
+    const gap = ROWS - colVals.length;
+    for (let r = 0; r < ROWS; r++) board[r][c] = r < gap ? 0 : colVals[r - gap];
+  }
+}
+
+function showPowerupLabel(glyph) {
+  if (!powerupIndicatorEl) return;
+  powerupIndicatorEl.textContent = glyph;
+  clearTimeout(powerupLabelTimeout);
+  powerupLabelTimeout = setTimeout(() => {
+    powerupIndicatorEl.textContent = '—';
+  }, 1500);
 }
 
 function ghostY() {
@@ -171,7 +302,11 @@ function softDrop() {
 }
 
 function lockPiece() {
-  merge();
+  if (POWERUP_TYPES.includes(current.type)) {
+    applyPowerup(current.type, current.y, current.x);
+  } else {
+    merge();
+  }
   clearLines();
   spawn();
 }
@@ -200,6 +335,12 @@ function drawBlock(context, x, y, colorIndex, size, alpha) {
   // highlight
   context.fillStyle = 'rgba(255,255,255,0.12)';
   context.fillRect(x * size + 1, y * size + 1, size - 2, 4);
+  if (POWERUP_GLYPHS[colorIndex]) {
+    context.font = `${size * 0.6}px sans-serif`;
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText(POWERUP_GLYPHS[colorIndex], x * size + size / 2, y * size + size / 2 + 1);
+  }
   context.globalAlpha = 1;
 }
 
@@ -275,18 +416,32 @@ function togglePause() {
   }
 }
 
+function updatePowerupIndicator() {
+  if (!powerupIndicatorEl || !freezeUntil) return;
+  const remaining = freezeUntil - performance.now();
+  if (remaining > 0) {
+    powerupIndicatorEl.textContent = `❄️ ${Math.ceil(remaining / 1000)}s`;
+  } else {
+    freezeUntil = 0;
+    powerupIndicatorEl.textContent = '—';
+  }
+}
+
 function loop(ts) {
   const dt = ts - lastTime;
   lastTime = ts;
-  dropAccum += dt;
-  if (dropAccum >= dropInterval) {
-    dropAccum = 0;
-    if (!collide(current.shape, current.x, current.y + 1)) {
-      current.y++;
-    } else {
-      lockPiece();
+  if (performance.now() >= freezeUntil) {
+    dropAccum += dt;
+    if (dropAccum >= dropInterval) {
+      dropAccum = 0;
+      if (!collide(current.shape, current.x, current.y + 1)) {
+        current.y++;
+      } else {
+        lockPiece();
+      }
     }
   }
+  updatePowerupIndicator();
   if (gameOver) return;
   draw();
   animId = requestAnimationFrame(loop);
@@ -302,6 +457,12 @@ function init() {
   dropInterval = 1000;
   dropAccum = 0;
   rewardPending = false;
+  linesSincePowerup = 0;
+  powerupPending = false;
+  pendingPowerupType = null;
+  freezeUntil = 0;
+  clearTimeout(powerupLabelTimeout);
+  if (powerupIndicatorEl) powerupIndicatorEl.textContent = '—';
   lastTime = performance.now();
   next = randomPiece();
   spawn();
