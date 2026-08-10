@@ -13,6 +13,11 @@ const COLORS = [
   '#e57373', // Z - red
   '#64b5f6', // J - pale blue
   '#ffb74d', // L - orange
+  '#f8bbd0', // + (plus) - pink
+  '#4db6ac', // U - teal
+  '#9575cd', // Y - deep purple
+  '#fff176', // 1x1 (Tetris reward) - bright gold
+  '#b0bec5', // 3x3 hollow - steel gray
 ];
 
 const PIECES = [
@@ -24,9 +29,24 @@ const PIECES = [
   [[5,5,0],[0,5,5],[0,0,0]],                  // Z
   [[6,0,0],[6,6,6],[0,0,0]],                  // J
   [[0,0,7],[7,7,7],[0,0,0]],                  // L
+  [[0,8,0],[8,8,8],[0,8,0]],                  // + (plus) - special
+  [[9,0,9],[9,9,9]],                          // U - special
+  [[0,10],[10,10],[0,10],[0,10]],             // Y - special
+  [[11]],                                     // 1x1 single - Tetris reward
+  [[12,12,12],[12,0,12],[12,12,12]],          // 3x3 hollow - special
 ];
 
 const LINE_SCORES = [0, 100, 300, 500, 800];
+
+// Standard pieces are types 1-7 (drawn on every spawn unless overridden below).
+const STANDARD_TYPE_COUNT = 7;
+// Special pieces that occasionally replace a standard spawn (excludes the Tetris reward piece).
+const SPECIAL_TYPES = [8, 9, 10, 12];
+// Probability [0,1] that a given spawn produces a random special piece instead of a standard one.
+// Tune this to make special pieces more or less frequent.
+const SPECIAL_PIECE_CHANCE = 0.12;
+// Piece type awarded right after a Tetris (4-line clear).
+const REWARD_PIECE_TYPE = 11;
 
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
@@ -45,13 +65,23 @@ const THEME_KEY = 'tetris-theme';
 
 let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId;
 let gridColor = '#22222e';
+// Set when a Tetris (4-line clear) happens; consumed by the next randomPiece() call.
+let rewardPending = false;
 
 function createBoard() {
   return Array.from({ length: ROWS }, () => new Array(COLS).fill(0));
 }
 
 function randomPiece() {
-  const type = Math.floor(Math.random() * 7) + 1;
+  let type;
+  if (rewardPending) {
+    type = REWARD_PIECE_TYPE;
+    rewardPending = false;
+  } else if (Math.random() < SPECIAL_PIECE_CHANCE) {
+    type = SPECIAL_TYPES[Math.floor(Math.random() * SPECIAL_TYPES.length)];
+  } else {
+    type = Math.floor(Math.random() * STANDARD_TYPE_COUNT) + 1;
+  }
   const shape = PIECES[type].map(row => [...row]);
   return { type, shape, x: Math.floor(COLS / 2) - Math.floor(shape[0].length / 2), y: 0 };
 }
@@ -112,6 +142,7 @@ function clearLines() {
     score += (LINE_SCORES[cleared] || 0) * level;
     level = Math.floor(lines / 10) + 1;
     dropInterval = Math.max(100, 1000 - (level - 1) * 90);
+    if (cleared === 4) rewardPending = true;
     updateHUD();
   }
 }
@@ -270,6 +301,7 @@ function init() {
   gameOver = false;
   dropInterval = 1000;
   dropAccum = 0;
+  rewardPending = false;
   lastTime = performance.now();
   next = randomPiece();
   spawn();
