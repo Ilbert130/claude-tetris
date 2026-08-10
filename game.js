@@ -312,6 +312,7 @@ function applyTheme(theme) {
   themeToggle.checked = theme === 'light';
   updateGridColor();
   localStorage.setItem(THEME_KEY, theme);
+  if (board && current) draw();
 }
 
 function initTheme() {
