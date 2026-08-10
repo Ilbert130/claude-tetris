@@ -35,7 +35,10 @@ jobs:
                con un diagnóstico general del problema: causa probable, qué
                archivos de este proyecto Tetris (game.js / index.html / style.css)
                probablemente estén involucrados, y consideraciones a tener en
-               cuenta para implementar la solución más adelante.
+               cuenta para implementar la solución más adelante. El comentario
+               debe estar escrito en formato Markdown válido y bien interpretable
+               por GitHub (encabezados, listas, bloques de código con \`\`\` para
+               fragmentos de código o rutas de archivo, etc.).
 
             No implementes ningún cambio de código ni hagas commits — este
             workflow es solo de diagnóstico y triage.
