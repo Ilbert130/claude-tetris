@@ -194,6 +194,131 @@ body {
   border-radius: 4px;
 }
 
+/* ---- Récords / high scores ---- */
+.hs-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 12px;
+}
+
+.hs-entry {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+.hs-entry.hs-highlight {
+  background: color-mix(in srgb, var(--accent) 25%, transparent);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.hs-rank {
+  color: var(--label);
+  min-width: 14px;
+}
+
+.hs-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hs-score {
+  font-weight: 700;
+}
+
+.hs-empty {
+  color: var(--label);
+  font-size: 12px;
+}
+
+.hs-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11px;
+  color: var(--controls-text);
+}
+
+.hs-meta strong {
+  color: var(--accent);
+}
+
+.hs-reset-btn {
+  background: transparent;
+  color: var(--controls-text);
+  border: 1px solid var(--kbd-border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.hs-reset-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.hs-overlay-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.hs-overlay-section.hidden {
+  display: none;
+}
+
+.hs-entry-form {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+}
+
+.hs-entry-form.hidden {
+  display: none;
+}
+
+#hs-name-input {
+  background: var(--kbd-bg);
+  border: 1px solid var(--kbd-border);
+  border-radius: 4px;
+  color: var(--text);
+  padding: 6px 8px;
+  font-size: 13px;
+  width: 120px;
+}
+
+#hs-name-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+#hs-submit-btn {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border: none;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+#hs-submit-btn:hover {
+  background: var(--accent-hover);
+}
+
 /* ---- Controles ---- */
 .controls ul {
   list-style: none;

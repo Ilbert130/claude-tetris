@@ -45,6 +45,16 @@
           <canvas id="next-canvas" width="120" height="120"></canvas>
         </div>
 
+        <div class="panel-section hs-section">
+          <span class="label">RÉCORDS</span>
+          <ol class="hs-list" id="hs-panel-list"></ol>
+          <div class="hs-meta">
+            <span>Mejor combo: <strong id="hs-best-combo">0</strong></span>
+            <span>Máx. líneas: <strong id="hs-max-lines">0</strong></span>
+          </div>
+          <button id="hs-reset-btn" class="hs-reset-btn" type="button">Resetear récords</button>
+        </div>
+
         <div class="panel-section controls">
           <span class="label">CONTROLS</span>
           <ul>
@@ -61,6 +71,13 @@
         <div class="overlay-box">
           <p id="overlay-title">GAME OVER</p>
           <p id="overlay-score"></p>
+          <div id="hs-overlay-section" class="hs-overlay-section hidden">
+            <div id="hs-entry-form" class="hs-entry-form hidden">
+              <input id="hs-name-input" type="text" maxlength="12" placeholder="Tu nombre" autocomplete="off" />
+              <button id="hs-submit-btn" type="button">Guardar</button>
+            </div>
+            <ol class="hs-list" id="hs-overlay-list"></ol>
+          </div>
           <button id="restart-btn">Reiniciar</button>
         </div>
       </div>
