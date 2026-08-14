@@ -61,9 +61,18 @@ body {
 
 .top-bar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 16px;
+  gap: 12px 16px;
+}
+
+.top-bar-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
 }
 
 .game-title {
@@ -72,6 +81,25 @@ body {
   letter-spacing: 10px;
   color: var(--accent);
   text-shadow: 0 0 20px rgba(122, 162, 247, 0.5);
+}
+
+/* ---- Selector de skin ---- */
+.skin-select {
+  background: var(--kbd-bg);
+  color: var(--text);
+  border: 1px solid var(--kbd-border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.skin-select:hover,
+.skin-select:focus-visible {
+  border-color: var(--accent);
+  outline: none;
 }
 
 /* ---- Toggle de tema ---- */

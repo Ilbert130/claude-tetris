@@ -83,11 +83,15 @@ const overlayScore = document.getElementById('overlay-score');
 const restartBtn = document.getElementById('restart-btn');
 const themeToggle = document.getElementById('theme-toggle');
 const powerupIndicatorEl = document.getElementById('powerup-indicator');
+const skinSelect = document.getElementById('skin-select');
 
 const THEME_KEY = 'tetris-theme';
+const SKIN_KEY = 'tetris-skin';
+const SKINS = ['retro', 'neon', 'pastel', 'pixel'];
 
 let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId;
 let gridColor = '#22222e';
+let currentSkin = 'retro';
 // Set when a Tetris (4-line clear) happens; consumed by the next randomPiece() call.
 let rewardPending = false;
 // Lines cleared since the last power-up spawn; and the pending power-up (if any) for the next randomPiece() call.
@@ -326,20 +330,109 @@ function updateHUD() {
   levelEl.textContent = level;
 }
 
+// Blends a hex color toward white by `amount` (0-1) to produce softer pastel tones.
+function lightenColor(hex, amount) {
+  const num = parseInt(hex.slice(1), 16);
+  const r = (num >> 16) & 0xff;
+  const g = (num >> 8) & 0xff;
+  const b = num & 0xff;
+  const nr = Math.round(r + (255 - r) * amount);
+  const ng = Math.round(g + (255 - g) * amount);
+  const nb = Math.round(b + (255 - b) * amount);
+  return `rgb(${nr}, ${ng}, ${nb})`;
+}
+
+// Draws a rounded rect, using the native API when available and falling back to arcs otherwise.
+function fillRoundedRect(context, x, y, w, h, radius) {
+  if (typeof context.roundRect === 'function') {
+    context.beginPath();
+    context.roundRect(x, y, w, h, radius);
+    context.fill();
+    return;
+  }
+  const r = Math.min(radius, w / 2, h / 2);
+  context.beginPath();
+  context.moveTo(x + r, y);
+  context.arcTo(x + w, y, x + w, y + h, r);
+  context.arcTo(x + w, y + h, x, y + h, r);
+  context.arcTo(x, y + h, x, y, r);
+  context.arcTo(x, y, x + w, y, r);
+  context.closePath();
+  context.fill();
+}
+
+function drawBlockRetro(context, px, py, size, color) {
+  context.fillStyle = color;
+  context.fillRect(px + 1, py + 1, size - 2, size - 2);
+  context.fillStyle = 'rgba(255,255,255,0.12)';
+  context.fillRect(px + 1, py + 1, size - 2, 4);
+}
+
+function drawBlockNeon(context, px, py, size, color) {
+  context.save();
+  context.shadowColor = color;
+  context.shadowBlur = size * 0.5;
+  context.fillStyle = color;
+  context.fillRect(px + 2, py + 2, size - 4, size - 4);
+  context.restore();
+  context.fillStyle = 'rgba(255,255,255,0.18)';
+  context.fillRect(px + 2, py + 2, size - 4, 3);
+}
+
+function drawBlockPastel(context, px, py, size, color) {
+  const soft = lightenColor(color, 0.45);
+  context.fillStyle = soft;
+  fillRoundedRect(context, px + 1, py + 1, size - 2, size - 2, size * 0.25);
+  context.fillStyle = 'rgba(255,255,255,0.35)';
+  fillRoundedRect(context, px + 1, py + 1, size - 2, size * 0.3, size * 0.25);
+}
+
+function drawBlockPixel(context, px, py, size, color) {
+  context.fillStyle = color;
+  context.fillRect(px + 1, py + 1, size - 2, size - 2);
+  context.fillStyle = 'rgba(255,255,255,0.12)';
+  context.fillRect(px + 1, py + 1, size - 2, 4);
+  // pixel-art checkerboard texture on top
+  const cells = 4;
+  const cellSize = (size - 2) / cells;
+  context.fillStyle = 'rgba(0,0,0,0.12)';
+  for (let gy = 0; gy < cells; gy++) {
+    for (let gx = 0; gx < cells; gx++) {
+      if ((gx + gy) % 2 === 0) {
+        context.fillRect(px + 1 + gx * cellSize, py + 1 + gy * cellSize, cellSize, cellSize);
+      }
+    }
+  }
+  context.strokeStyle = 'rgba(0,0,0,0.25)';
+  context.lineWidth = 1;
+  context.strokeRect(px + 1.5, py + 1.5, size - 3, size - 3);
+}
+
 function drawBlock(context, x, y, colorIndex, size, alpha) {
   if (!colorIndex) return;
   const color = COLORS[colorIndex];
+  const px = x * size;
+  const py = y * size;
   context.globalAlpha = alpha ?? 1;
-  context.fillStyle = color;
-  context.fillRect(x * size + 1, y * size + 1, size - 2, size - 2);
-  // highlight
-  context.fillStyle = 'rgba(255,255,255,0.12)';
-  context.fillRect(x * size + 1, y * size + 1, size - 2, 4);
+  switch (currentSkin) {
+    case 'neon':
+      drawBlockNeon(context, px, py, size, color);
+      break;
+    case 'pastel':
+      drawBlockPastel(context, px, py, size, color);
+      break;
+    case 'pixel':
+      drawBlockPixel(context, px, py, size, color);
+      break;
+    default:
+      drawBlockRetro(context, px, py, size, color);
+      break;
+  }
   if (POWERUP_GLYPHS[colorIndex]) {
     context.font = `${size * 0.6}px sans-serif`;
     context.textAlign = 'center';
     context.textBaseline = 'middle';
-    context.fillText(POWERUP_GLYPHS[colorIndex], x * size + size / 2, y * size + size / 2 + 1);
+    context.fillText(POWERUP_GLYPHS[colorIndex], px + size / 2, py + size / 2 + 1);
   }
   context.globalAlpha = 1;
 }
@@ -363,6 +456,10 @@ function drawGrid() {
 
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (currentSkin === 'neon') {
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
   drawGrid();
 
   // board
@@ -386,6 +483,10 @@ function draw() {
 function drawNext() {
   const NB = 30;
   nextCtx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
+  if (currentSkin === 'neon') {
+    nextCtx.fillStyle = '#000000';
+    nextCtx.fillRect(0, 0, nextCanvas.width, nextCanvas.height);
+  }
   const shape = next.shape;
   const offX = Math.floor((4 - shape[0].length) / 2);
   const offY = Math.floor((4 - shape.length) / 2);
@@ -518,7 +619,27 @@ themeToggle.addEventListener('change', () => {
   applyTheme(themeToggle.checked ? 'light' : 'dark');
 });
 
+function applySkin(skin) {
+  currentSkin = SKINS.includes(skin) ? skin : 'retro';
+  if (skinSelect) skinSelect.value = currentSkin;
+  localStorage.setItem(SKIN_KEY, currentSkin);
+  if (board && current) draw();
+  if (next) drawNext();
+}
+
+function initSkin() {
+  const saved = localStorage.getItem(SKIN_KEY);
+  applySkin(saved || 'retro');
+}
+
+if (skinSelect) {
+  skinSelect.addEventListener('change', () => {
+    applySkin(skinSelect.value);
+  });
+}
+
 restartBtn.addEventListener('click', init);
 
 initTheme();
+initSkin();
 init();
