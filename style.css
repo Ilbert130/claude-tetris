@@ -275,6 +275,79 @@ kbd {
   background: var(--accent-hover);
 }
 
+/* ---- Pause menu ---- */
+.overlay-box .pause-only,
+.overlay-box .gameover-only {
+  display: none;
+}
+
+.overlay-box.mode-pause .pause-only {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.overlay-box.mode-gameover .gameover-only {
+  display: block;
+}
+
+.pause-menu-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.pause-menu-actions button {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border: none;
+  border-radius: 6px;
+  padding: 10px 28px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 1px;
+  transition: background 0.15s;
+}
+
+.pause-menu-actions button:hover {
+  background: var(--accent-hover);
+}
+
+.pause-level-select {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pause-level-select .label,
+.pause-level-select label {
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--label);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.pause-level-select select {
+  background: var(--kbd-bg);
+  border: 1px solid var(--kbd-border);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 13px;
+}
+
+#pause-controls-list {
+  padding-top: 4px;
+}
+
+#pause-controls-list.hidden {
+  display: none;
+}
+
 /* ---- Responsive ---- */
 @media (max-width: 560px) {
   body {
